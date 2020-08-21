@@ -87,15 +87,17 @@ interface IRepo {
 
   const oneDay = [
     { label: '🌞 아침', commits: morning },
-    { label: '🌆  낮', commits: daytime },
+    { label: '🌆 낮 ', commits: daytime },
     { label: '🌃 저녁', commits: evening },
-    { label: '🌙  밤', commits: night },
+    { label: '🌙 밤 ', commits: night },
   ];
 
   const lines = oneDay.reduce((prev, cur) => {
     const percent = (cur.commits / sum) * 100;
     const line = [
-      `${cur.label}`.padEnd(10),
+      cur.commits === daytime || cur.commits === night
+        ? `${cur.label}`.padEnd(11)
+        : `${cur.label}`.padEnd(10),
       `${cur.commits.toString().padStart(5)} commits`.padEnd(14),
       generateBarChart(percent, 21),
       String(percent.toFixed(1)).padStart(5) + '%',
