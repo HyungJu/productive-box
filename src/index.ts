@@ -4,7 +4,11 @@ import { Octokit } from '@octokit/rest';
 
 import githubQuery from './githubQuery';
 import generateBarChart from './generateBarChart';
-import { userInfoQuery, createContributedRepoQuery, createCommittedDateQuery } from './queries';
+import {
+  userInfoQuery,
+  createContributedRepoQuery,
+  createCommittedDateQuery,
+} from './queries';
 /**
  * get environment variable
  */
@@ -15,23 +19,25 @@ interface IRepo {
   owner: string;
 }
 
-(async() => {
+(async () => {
   /**
    * First, get user id
    */
-  const userResponse = await githubQuery(userInfoQuery)
-    .catch(error => console.error(`Unable to get username and id\n${error}`));
+  const userResponse = await githubQuery(userInfoQuery).catch((error) =>
+    console.error(`Unable to get username and id\n${error}`)
+  );
   const { login: username, id } = userResponse?.data?.viewer;
 
   /**
    * Second, get contributed repos
    */
   const contributedRepoQuery = createContributedRepoQuery(username);
-  const repoResponse = await githubQuery(contributedRepoQuery)
-    .catch(error => console.error(`Unable to get the contributed repo\n${error}`));
+  const repoResponse = await githubQuery(contributedRepoQuery).catch((error) =>
+    console.error(`Unable to get the contributed repo\n${error}`)
+  );
   const repos: IRepo[] = repoResponse?.data?.user?.repositoriesContributedTo?.nodes
-    .filter(repoInfo => (!repoInfo?.isFork))
-    .map(repoInfo => ({
+    .filter((repoInfo) => !repoInfo?.isFork)
+    .map((repoInfo) => ({
       name: repoInfo?.name,
       owner: repoInfo?.owner?.login,
     }));
@@ -40,8 +46,10 @@ interface IRepo {
    * Third, get commit time and parse into commit-time/hour diagram
    */
   const committedTimeResponseMap = await Promise.all(
-    repos.map(({name, owner}) => githubQuery(createCommittedDateQuery(id, name, owner)))
-  ).catch(error => console.error(`Unable to get the commit info\n${error}`));
+    repos.map(({ name, owner }) =>
+      githubQuery(createCommittedDateQuery(id, name, owner))
+    )
+  ).catch((error) => console.error(`Unable to get the commit info\n${error}`));
 
   if (!committedTimeResponseMap) return;
 
@@ -50,20 +58,25 @@ interface IRepo {
   let evening = 0; // 18 - 24
   let night = 0; // 0 - 6
 
-  committedTimeResponseMap.forEach(committedTimeResponse => {
-    committedTimeResponse?.data?.repository?.ref?.target?.history?.edges.forEach(edge => {
-      const committedDate = edge?.node?.committedDate;
-      const timeString = new Date(committedDate).toLocaleTimeString('en-US', { hour12: false, timeZone: process.env.TIMEZONE });
-      const hour = +(timeString.split(':')[0]);
+  committedTimeResponseMap.forEach((committedTimeResponse) => {
+    committedTimeResponse?.data?.repository?.ref?.target?.history?.edges.forEach(
+      (edge) => {
+        const committedDate = edge?.node?.committedDate;
+        const timeString = new Date(committedDate).toLocaleTimeString('en-US', {
+          hour12: false,
+          timeZone: process.env.TIMEZONE,
+        });
+        const hour = +timeString.split(':')[0];
 
-      /**
-       * voting and counting
-       */
-      if (hour >= 6 && hour < 12) morning++;
-      if (hour >= 12 && hour < 18) daytime++;
-      if (hour >= 18 && hour < 24) evening++;
-      if (hour >= 0 && hour < 6) night++;
-    });
+        /**
+         * voting and counting
+         */
+        if (hour >= 6 && hour < 12) morning++;
+        if (hour >= 12 && hour < 18) daytime++;
+        if (hour >= 18 && hour < 24) evening++;
+        if (hour >= 0 && hour < 6) night++;
+      }
+    );
   });
 
   /**
@@ -74,13 +87,13 @@ interface IRepo {
 
   const oneDay = [
     { label: '🌞 아침', commits: morning },
-    { label: '🌆 낮', commits: daytime },
+    { label: '🌆 낮 ', commits: daytime },
     { label: '🌃 저녁', commits: evening },
-    { label: '🌙 밤', commits: night },
+    { label: '🌙 밤 ', commits: night },
   ];
 
   const lines = oneDay.reduce((prev, cur) => {
-    const percent = cur.commits / sum * 100;
+    const percent = (cur.commits / sum) * 100;
     const line = [
       `${cur.label}`.padEnd(10),
       `${cur.commits.toString().padStart(5)} commits`.padEnd(14),
@@ -95,9 +108,11 @@ interface IRepo {
    * Finally, write into gist
    */
   const octokit = new Octokit({ auth: `token ${process.env.GH_TOKEN}` });
-  const gist = await octokit.gists.get({
-    gist_id: process.env.GIST_ID
-  }).catch(error => console.error(`Unable to update gist\n${error}`));
+  const gist = await octokit.gists
+    .get({
+      gist_id: process.env.GIST_ID,
+    })
+    .catch((error) => console.error(`Unable to update gist\n${error}`));
   if (!gist) return;
 
   const filename = Object.keys(gist.data.files)[0];
@@ -106,7 +121,10 @@ interface IRepo {
     files: {
       [filename]: {
         // eslint-disable-next-line quotes
-        filename: (morning + daytime) > (evening + night) ? "아침에 주로 활동해요 🐤" : "밤에 주로 활동해요 🦉",
+        filename:
+          morning + daytime > evening + night
+            ? '아침에 주로 활동해요 🐤'
+            : '밤에 주로 활동해요 🦉',
         content: lines.join('\n'),
       },
     },
