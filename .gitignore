@@ -8,3 +8,7 @@ node_modules/
 
 # configuration
 .env
+
+# editor configs
+.vscode
+.idea
